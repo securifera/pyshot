@@ -41,6 +41,7 @@ import sys
 import socket
 import json
 import os
+import filecmp
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import TimeoutException
@@ -89,7 +90,7 @@ def navigate_to_url( driver, url, host ):
 
     return ret_host
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False ):
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None ):
 
     empty_page = '<html><head></head><body></body></html>'
     caps = DesiredCapabilities.CHROME
@@ -146,11 +147,18 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False ):
             ret_err = True
             print("[-] Empty page")
 
+        filename1 = None
         if ret_err == False:
             #Cleanup filename and save
-            filename = url.replace('https://', '').replace('http://','').replace(':',"_")
-            driver.save_screenshot(dest_dir + filename + ".png")
+            filename = ''
+            if port_id:
+                filename += port_id + "@"
+            #Remove characters that will make save fail
+            filename += url.replace('://', '_').replace(':',"_")
+            filename1 = dest_dir + filename + ".png"
+            driver.save_screenshot(filename1)
 
+        filename2 = None
         #If the SSL certificate references a different hostname
         if ret_host:
 
@@ -160,10 +168,21 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False ):
 
             navigate_to_url(driver, url, ret_host)
             if driver.page_source != empty_page:
-                filename = host + '_' + port.replace(':','') + '_' + ret_host + ".png"
-                driver.save_screenshot(dest_dir + filename)
+                filename = ''
+                if port_id:
+                    filename += port_id + "@"
+                #Remove characters that will make save fail
+                filename += url.replace('://', '_').replace(':',"_")
+                filename2 = dest_dir + filename + ".png"
+                driver.save_screenshot(filename2)
             else:
                 print("[-] Empty page")
+
+        if filename1 and filename2:
+           file_match = filecmp.cmp(filename1,filename2)
+           if file_match:
+               print("[-] Removing duplicate screenshot %s" % (filename2))
+               os.remove(filename2)
 
     except Exception as e:
         print(e)
