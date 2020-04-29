@@ -92,6 +92,28 @@ def navigate_to_url( driver, url, host ):
 
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None ):
 
+    port = ""
+    if port_arg:
+        port = ":" + port_arg
+
+    #Add query if it exists
+    path = host + port
+    if query_arg:
+        path += "/" + query_arg
+
+    #Get the right URL
+    if secure == False:
+      url = "http://" + path
+    else:
+      url = "https://" + path
+
+    if len(dest_dir) > 0:
+      dest_dir = dest_dir + os.path.sep
+
+
+    #Retrieve the page
+    ret_err = False
+
     empty_page = '<html><head></head><body></body></html>'
     caps = DesiredCapabilities.CHROME
     caps['loggingPrefs'] = {'performance': 'ALL'}      # Works prior to chrome 75
@@ -111,38 +133,16 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
 
     driver = webdriver.Chrome('chromedriver', chrome_options=options, desired_capabilities=caps)
-    driver.set_window_size(1024, 768) # set the window size that you need
-    driver.set_page_load_timeout(10)
-    source = None
-
-    port = ""
-    if port_arg:
-        port = ":" + port_arg
-
-    #Add query if it exists
-    path = host + port
-    if query_arg:
-        path += "/" + query_arg
-
-    #Get the right URL
-    if secure == False:
-      url = "http://" + path
-    else:
-      url = "https://" + path
-
-    #Retrieve the page
-    ret_err = False
-
-    #Enable network tracking
-    driver.execute_cdp_cmd('Network.enable', {'maxTotalBufferSize': 1000000, 'maxResourceBufferSize': 1000000, 'maxPostDataSize': 1000000})
-
-    if len(dest_dir) > 0:
-      dest_dir = dest_dir + os.path.sep
-
-    #Goto page
-    ret_host = navigate_to_url(driver, url, host)
     try:
+        driver.set_window_size(1024, 768) # set the window size that you need
+        driver.set_page_load_timeout(10)
+        source = None
 
+        #Enable network tracking
+        driver.execute_cdp_cmd('Network.enable', {'maxTotalBufferSize': 1000000, 'maxResourceBufferSize': 1000000, 'maxPostDataSize': 1000000})
+
+        #Goto page
+        ret_host = navigate_to_url(driver, url, host)
         if driver.page_source == empty_page:
             ret_err = True
             print("[-] Empty page")
@@ -191,9 +191,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         source = driver.page_source
         driver.close()
         driver.quit()
-
-    if ret_err == True:
-        sys.exit(1)
 
     return source
 
