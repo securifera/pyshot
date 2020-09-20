@@ -1,13 +1,18 @@
 # Author: b0yd @rwincey
 # Website: securifera.com
 #
+#         PhantomJS code pulled from webscreenshot 
+#         Thomas Debize <tdebize at mail.com>
+#         https://github.com/maaaaz/webscreenshot
+#
 # Setup:
 # -------------------------------------------------
 # Install Selenium
 # - pip install selenium
 # Chrome dependencies
 # - apt install fonts-liberation libgbm1 libappindicator3-1
-#
+# PhantomJS dependencies
+# - apt install openssl
 # Download latest google chrome & install
 # - wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 # - dpkg -i ./google-chrome-stable_current_amd64.deb
@@ -23,10 +28,18 @@
 # Move the chromedriver to a directory in the PATH env var
 # - mv ./chromedriver /usr/bin/
 #
+# Download phantomJS
+# - wget https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-linux-x86_64.tar.bz2
+#     or
+# - wget https://bitbucket.org/ariya/phantomjs/downloads/phantomjs-2.1.1-windows.zip
+#
+# Move the phantomJS to a directory in the PATH env var
+# - move phantomjs.exe C:\\Windows\\System32
+#
 # Usage:
 # -------------------------------------------------
 # python3 pyshot.py -u 172.217.12.78 -p 80
-# python3 pyshot.py -u securifera.com -p 443 --secure
+# 
 #
 # Troubleshooting
 # -------------------------------------------------
@@ -35,13 +48,17 @@
 # Solution: pip install --upgrade --ignore-installed urllib3
 #
 
-
 import argparse
 import sys
 import socket
 import json
 import os
+import time
 import filecmp
+import errno
+import subprocess
+import datetime
+import signal
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import TimeoutException
@@ -75,7 +92,6 @@ def get_ssl_subject_name(origin, log):
 def navigate_to_url( driver, url, host ):
 
     ret_host = None
-    print(url)
     try:
         driver.get(url)
     except Exception as e:
@@ -85,10 +101,103 @@ def navigate_to_url( driver, url, host ):
     origin = driver.current_url
     ssl_subj_name = get_ssl_subject_name(origin, driver.get_log('performance'))
     if ssl_subj_name and host != ssl_subj_name and "*." not in ssl_subj_name:
-        print("Certificate Host Mismatch: %s %s" % ( host, ssl_subj_name ))
+        print("[-] Certificate Host Mismatch: %s %s" % ( host, ssl_subj_name ))
         ret_host = ssl_subj_name
 
     return ret_host
+
+def shell_exec(url, cmd_arr):
+
+    SHELL_EXECUTION_OK = 0
+    PHANTOMJS_HTTP_AUTH_ERROR_CODE = 2
+    
+    timeout = 60
+    start = datetime.datetime.now()
+    is_windows = "win32" in sys.platform.lower()
+        
+    print(cmd_arr)
+    try :
+    
+        if is_windows:
+            p = subprocess.Popen(cmd_arr, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        else:
+            my_env = os.environ.copy()
+            my_env["OPENSSL_CONF"] = "/etc/ssl/"
+            p = subprocess.Popen(cmd_arr, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
+     
+        # binaries timeout
+        while p.poll() is None:
+            time.sleep(0.1)
+            now = datetime.datetime.now()
+            if (now - start).seconds > timeout:
+                print("[-] PhantomJS job reached timeout. Killing process.")
+                s.stdout.close()
+                s.stderr.close()
+                
+                if is_windows:
+                    p.send_signal(signal.SIGTERM)
+                else:
+                    p.send_signal(signal.SIGKILL)
+                        
+                return False
+        
+        retval = p.poll()
+        s.stdout.close()
+        s.stderr.close()
+        
+        if retval != SHELL_EXECUTION_OK:
+            if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
+                print("[-] HTTP Authentication requested.")
+            else:
+                print("[-] PhantomJS failed. error code: '0x%x'" % (retval))                    
+            return False        
+        else:
+            return True
+    
+    except OSError as e:
+        if e.errno and e.errno == errno.ENOENT :
+            print('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
+            return False
+        
+    except Exception as err:
+        print('[-] Failed. Error: %s' % err)
+        return False
+
+def phantomjs_screenshot(url, host_str, output_filename):
+    
+    WEBSCREENSHOT_JS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), './webscreenshot.js'))
+    final_bin = []
+    final_bin.append('phantomjs')
+    bin_path = " ".join(final_bin)
+
+    cmd_parameters = [ bin_path,
+                       '--ignore-ssl-errors=true',
+                       '--ssl-protocol=any',
+                       '--ssl-ciphers=ALL' ]
+
+    #cmd_parameters.append("--proxy %s" % 'http://127.0.0.1:8080')
+    #cmd_parameters.append("--proxy-type %s" % 'http')
+    
+    cmd_parameters.append(WEBSCREENSHOT_JS)
+    cmd_parameters.append('url_capture=%s' % url)
+    cmd_parameters.append('output_file=%s' % output_filename)
+    
+    #cmd_parameters.append('header="Cookie: %s"' % options.cookie.rstrip(';')) if options.cookie != None else None
+            
+    cmd_parameters.append('width=%d' % 1200)
+    cmd_parameters.append('height=%d' % 800)
+    
+    cmd_parameters.append('format=%s' % 'png')
+    cmd_parameters.append('quality=%d' % 75)
+    
+    cmd_parameters.append('ajaxtimeout=%d' % 2400)
+    cmd_parameters.append('maxtimeout=%d' % 3000)
+    
+    cmd_parameters.append('header=Host: %s' % host_str)
+    cmd_parameters.append('header=Referer: ')
+
+    #print(cmd_parameters)    
+    return shell_exec(url, cmd_parameters)
 
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None ):
 
@@ -102,10 +211,11 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         path += "/" + query_arg
 
     #Get the right URL
+    print(path)
     if secure == False:
-      url = "http://" + path
+        url = "http://" + path
     else:
-      url = "https://" + path
+        url = "https://" + path
 
     if len(dest_dir) > 0:
       dest_dir = dest_dir + os.path.sep
@@ -132,7 +242,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     options.add_argument('--no-sandbox')
     options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
 
-    driver = webdriver.Chrome('chromedriver', chrome_options=options, desired_capabilities=caps)
+    driver = webdriver.Chrome('chromedriver', options=options, desired_capabilities=caps)
     try:
         driver.set_window_size(1024, 768) # set the window size that you need
         driver.set_page_load_timeout(10)
@@ -164,25 +274,24 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
             #Replace any wildcards in the certificate
             ret_host = ret_host.replace("*.", "")
-            url = "https://" + ret_host + port
+            url = "https://" + host + ":443"
+            
+            filename = ''
+            if port_id:
+                filename += port_id + "@"
 
-            navigate_to_url(driver, url, ret_host)
-            if driver.page_source != empty_page:
-                filename = ''
-                if port_id:
-                    filename += port_id + "@"
-                #Remove characters that will make save fail
-                filename += url.replace('://', '_').replace(':',"_")
-                filename2 = dest_dir + filename + ".png"
-                driver.save_screenshot(filename2)
-            else:
-                print("[-] Empty page")
-
-        if filename1 and filename2:
-           file_match = filecmp.cmp(filename1,filename2)
-           if file_match:
-               print("[-] Removing duplicate screenshot %s" % (filename2))
-               os.remove(filename2)
+            #Remove characters that will make save fail
+            filename += url.replace('://', '_').replace(':',"_")
+            if ret_host != host:
+                filename += "_" + ret_host
+            filename2 = dest_dir + filename + ".png"
+            
+            ret = phantomjs_screenshot(url, ret_host, filename2)
+            if ret == True and filename1 and filename2:
+                file_match = filecmp.cmp(filename1,filename2)
+                if file_match:
+                    print("[-] Removing duplicate screenshot %s" % (filename2))
+                    os.remove(filename2)
 
     except Exception as e:
         print(e)
@@ -205,7 +314,7 @@ if __name__ == "__main__":
 
     secure_flag=False
     if args.secure == True:
-      secure_flag = True
+        secure_flag = True
 
     take_screenshot(args.host, args.port, args.query, secure=secure_flag)
 
