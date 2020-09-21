@@ -115,7 +115,7 @@ def shell_exec(url, cmd_arr):
     start = datetime.datetime.now()
     is_windows = "win32" in sys.platform.lower()
         
-    print(cmd_arr)
+    #print(cmd_arr)
     try :
     
         if is_windows:
@@ -131,8 +131,8 @@ def shell_exec(url, cmd_arr):
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
                 print("[-] PhantomJS job reached timeout. Killing process.")
-                s.stdout.close()
-                s.stderr.close()
+                p.stdout.close()
+                p.stderr.close()
                 
                 if is_windows:
                     p.send_signal(signal.SIGTERM)
@@ -142,8 +142,8 @@ def shell_exec(url, cmd_arr):
                 return False
         
         retval = p.poll()
-        s.stdout.close()
-        s.stderr.close()
+        p.stdout.close()
+        p.stderr.close()
         
         if retval != SHELL_EXECUTION_OK:
             if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
