@@ -199,7 +199,61 @@ def phantomjs_screenshot(url, host_str, output_filename):
     #print(cmd_parameters)    
     return shell_exec(url, cmd_parameters)
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None ):
+
+def chrome_screenshot(url, host, filename1):
+
+    empty_page = '<html><head></head><body></body></html>'
+    caps = DesiredCapabilities.CHROME
+    caps['loggingPrefs'] = {'performance': 'ALL'}      # Works prior to chrome 75
+    caps['goog:loggingPrefs'] = {'performance': 'ALL'} # Updated in chrome 75
+    options = webdriver.ChromeOptions()
+    if os.name == 'nt':
+        options.binary_location = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+    else:
+        options.binary_location = '/usr/bin/google-chrome-stable'
+
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--hide-scrollbars')
+    options.add_argument('--disable-crash-reporter')
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
+
+    #Retrieve the page
+    ret_err = False
+    driver = webdriver.Chrome('chromedriver', options=options, desired_capabilities=caps)
+    try:
+        driver.set_window_size(1024, 768) # set the window size that you need
+        driver.set_page_load_timeout(10)
+        source = None
+
+        #Enable network tracking
+        driver.execute_cdp_cmd('Network.enable', {'maxTotalBufferSize': 1000000, 'maxResourceBufferSize': 1000000, 'maxPostDataSize': 1000000})
+
+        #Goto page
+        ret_host = navigate_to_url(driver, url, host)
+        if driver.page_source == empty_page:
+            ret_err = True
+            print("[-] Empty page")
+
+        if ret_err == False:
+            #Save the screenshot
+            driver.save_screenshot(filename1)
+
+
+    except Exception as e:
+        print(e)
+        pass
+
+    finally:
+        driver.close()
+        driver.quit()
+
+    return ret_host
+
+
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None ):
 
     port = ""
     if port_arg:
@@ -221,87 +275,44 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
       dest_dir = dest_dir + os.path.sep
 
 
-    #Retrieve the page
-    ret_err = False
+    filename1 = None
+    filename2 = None
 
-    empty_page = '<html><head></head><body></body></html>'
-    caps = DesiredCapabilities.CHROME
-    caps['loggingPrefs'] = {'performance': 'ALL'}      # Works prior to chrome 75
-    caps['goog:loggingPrefs'] = {'performance': 'ALL'} # Updated in chrome 75
-    options = webdriver.ChromeOptions()
-    if os.name == 'nt':
-        options.binary_location = 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-    else:
-        options.binary_location = '/usr/bin/google-chrome-stable'
+    #Setup filename
+    filename = ''
+    if port_id:
+        filename += port_id + "@"
 
-    options.add_argument('--headless')
-    options.add_argument('--disable-gpu')
-    options.add_argument('--hide-scrollbars')
-    options.add_argument('--disable-crash-reporter')
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
+    #Remove characters that will make save fail
+    filename += url.replace('://', '_').replace(':',"_")
 
-    driver = webdriver.Chrome('chromedriver', options=options, desired_capabilities=caps)
-    try:
-        driver.set_window_size(1024, 768) # set the window size that you need
-        driver.set_page_load_timeout(10)
-        source = None
+    if domain == None:
 
-        #Enable network tracking
-        driver.execute_cdp_cmd('Network.enable', {'maxTotalBufferSize': 1000000, 'maxResourceBufferSize': 1000000, 'maxPostDataSize': 1000000})
+        #Cleanup filename and save
+        filename1 = dest_dir + filename + ".png"
+        domain = chrome_screenshot(url, host, filename1)
 
-        #Goto page
-        ret_host = navigate_to_url(driver, url, host)
-        if driver.page_source == empty_page:
-            ret_err = True
-            print("[-] Empty page")
+    #If the SSL certificate references a different hostname
+    if domain:
 
-        filename1 = None
-        if ret_err == False:
-            #Cleanup filename and save
-            filename = ''
-            if port_id:
-                filename += port_id + "@"
-            #Remove characters that will make save fail
-            filename += url.replace('://', '_').replace(':',"_")
-            filename1 = dest_dir + filename + ".png"
-            driver.save_screenshot(filename1)
+        #Replace any wildcards in the certificate
+        domain = domain.replace("*.", "")
+        url = "https://" + host + ":443"
+        
+        #Add domain 
+        if domain != host:
+            filename += "_" + domain
+        filename2 = dest_dir + filename + ".png"
+        
+        ret = phantomjs_screenshot(url, domain, filename2)
+        if ret == True and filename1 and filename2:
+            file_match = filecmp.cmp(filename1,filename2)
+            if file_match:
+                print("[-] Removing duplicate screenshot %s" % (filename2))
+                os.remove(filename2)
 
-        filename2 = None
-        #If the SSL certificate references a different hostname
-        if ret_host:
 
-            #Replace any wildcards in the certificate
-            ret_host = ret_host.replace("*.", "")
-            url = "https://" + host + ":443"
-            
-            filename = ''
-            if port_id:
-                filename += port_id + "@"
-
-            #Remove characters that will make save fail
-            filename += url.replace('://', '_').replace(':',"_")
-            if ret_host != host:
-                filename += "_" + ret_host
-            filename2 = dest_dir + filename + ".png"
-            
-            ret = phantomjs_screenshot(url, ret_host, filename2)
-            if ret == True and filename1 and filename2:
-                file_match = filecmp.cmp(filename1,filename2)
-                if file_match:
-                    print("[-] Removing duplicate screenshot %s" % (filename2))
-                    os.remove(filename2)
-
-    except Exception as e:
-        print(e)
-        pass
-    finally:
-        source = driver.page_source
-        driver.close()
-        driver.quit()
-
-    return source
+    return
 
 
 if __name__ == "__main__":
@@ -309,6 +320,7 @@ if __name__ == "__main__":
     parser.add_argument('-u', dest='host', help='Domain Name or IP', required=True)
     parser.add_argument('-q', dest='query', help='URL Query', required=False)
     parser.add_argument('-p', dest='port', help='Port', required=False)
+    parser.add_argument('-d', dest='host_hdr', help='Host Header Value')
     parser.add_argument('--secure', help='HTTPS', action='store_true')
     args = parser.parse_args()
 
@@ -316,6 +328,6 @@ if __name__ == "__main__":
     if args.secure == True:
         secure_flag = True
 
-    take_screenshot(args.host, args.port, args.query, secure=secure_flag)
+    take_screenshot(args.host, args.port, args.query, secure=secure_flag, domain=args.host_hdr)
 
 
