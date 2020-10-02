@@ -110,14 +110,14 @@ def shell_exec(url, cmd_arr):
 
     SHELL_EXECUTION_OK = 0
     PHANTOMJS_HTTP_AUTH_ERROR_CODE = 2
-    
+
     timeout = 60
     start = datetime.datetime.now()
     is_windows = "win32" in sys.platform.lower()
-        
+
     #print(cmd_arr)
     try :
-    
+
         if is_windows:
             p = subprocess.Popen(cmd_arr, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         else:
@@ -133,18 +133,18 @@ def shell_exec(url, cmd_arr):
                 print("[-] PhantomJS job reached timeout. Killing process.")
                 p.stdout.close()
                 p.stderr.close()
-                
+
                 if is_windows:
                     p.send_signal(signal.SIGTERM)
                 else:
                     p.send_signal(signal.SIGKILL)
-                        
+
                 return False
-        
+
         retval = p.poll()
         p.stdout.close()
         p.stderr.close()
-        
+
         if retval != SHELL_EXECUTION_OK:
             if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
                 print("[-] HTTP Authentication requested.")
@@ -164,7 +164,7 @@ def shell_exec(url, cmd_arr):
         return False
 
 def phantomjs_screenshot(url, host_str, output_filename):
-    
+
     WEBSCREENSHOT_JS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), './webscreenshot.js'))
     final_bin = []
     final_bin.append('phantomjs')
@@ -177,16 +177,16 @@ def phantomjs_screenshot(url, host_str, output_filename):
 
     #cmd_parameters.append("--proxy %s" % 'http://127.0.0.1:8080')
     #cmd_parameters.append("--proxy-type %s" % 'http')
-    
+
     cmd_parameters.append(WEBSCREENSHOT_JS)
     cmd_parameters.append('url_capture=%s' % url)
     cmd_parameters.append('output_file=%s' % output_filename)
-    
+
     #cmd_parameters.append('header="Cookie: %s"' % options.cookie.rstrip(';')) if options.cookie != None else None
-            
+
     cmd_parameters.append('width=%d' % 1200)
     cmd_parameters.append('height=%d' % 800)
-    
+
     cmd_parameters.append('format=%s' % 'png')
     cmd_parameters.append('quality=%d' % 75)
     
@@ -196,7 +196,7 @@ def phantomjs_screenshot(url, host_str, output_filename):
     cmd_parameters.append('header=Host: %s' % host_str)
     cmd_parameters.append('header=Referer: ')
 
-    #print(cmd_parameters)    
+    #print(cmd_parameters)
     return shell_exec(url, cmd_parameters)
 
 
@@ -265,7 +265,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         path += "/" + query_arg
 
     #Get the right URL
-    print(path)
+    #print(path)
     if secure == False:
         url = "http://" + path
     else:
@@ -287,18 +287,19 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     filename += url.replace('://', '_').replace(':',"_")
 
     #If the SSL certificate references a different hostname
-    if domain and domain != ret_host:
+    #print("Domain: %s" % domain)
+    if domain:
 
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
         url = "https://" + host + ":443"
-        
+
         #Add domain 
         tmp_str = filename
         if domain != host:
             tmp_str += "_" + domain
         filename2 = dest_dir + tmp_str + ".png"
-        
+
         ret = phantomjs_screenshot(url, domain, filename2)
 
 
