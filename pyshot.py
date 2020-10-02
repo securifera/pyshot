@@ -286,10 +286,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     #Remove characters that will make save fail
     filename += url.replace('://', '_').replace(':',"_")
 
-    #Cleanup filename and save
-    filename1 = dest_dir + filename + ".png"
-    ret_host = chrome_screenshot(url, host, filename1)
-
     #If the SSL certificate references a different hostname
     if domain and domain != ret_host:
 
@@ -305,27 +301,33 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         
         ret = phantomjs_screenshot(url, domain, filename2)
 
-    #If the SSL certificate references a different hostname
-    if ret_host:
 
-        #Replace any wildcards in the certificate
-        ret_host = ret_host.replace("*.", "")
-        url = "https://" + host + ":443"
-        
-        #Add domain
-        tmp_str = filename
-        if ret_host != host:
-            tmp_str += "_" + ret_host
-        filename2 = dest_dir + tmp_str + ".png"
-        
-        ret = phantomjs_screenshot(url, ret_host, filename2)
+    if ret == False:
+        #Cleanup filename and save
+        filename1 = dest_dir + filename + ".png"
+        ret_host = chrome_screenshot(url, host, filename1)
+
+        #If the SSL certificate references a different hostname
+        if ret_host:
+
+            #Replace any wildcards in the certificate
+            ret_host = ret_host.replace("*.", "")
+            url = "https://" + host + ":443"
+            
+            #Add domain
+            tmp_str = filename
+            if ret_host != host:
+                tmp_str += "_" + ret_host
+            filename2 = dest_dir + tmp_str + ".png"
+            
+            ret = phantomjs_screenshot(url, ret_host, filename2)
 
 
-        if ret == True and filename1 and filename2:
-            file_match = filecmp.cmp(filename1,filename2)
-            if file_match:
-                print("[-] Removing duplicate screenshot %s" % (filename2))
-                os.remove(filename2)
+            if ret == True and filename1 and filename2:
+                file_match = filecmp.cmp(filename1,filename2)
+                if file_match:
+                    print("[-] Removing duplicate screenshot %s" % (filename2))
+                    os.remove(filename2)
 
 
     return
