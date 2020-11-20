@@ -175,8 +175,9 @@ def phantomjs_screenshot(url, host_str, output_filename):
                        '--ssl-protocol=any',
                        '--ssl-ciphers=ALL' ]
 
-    #cmd_parameters.append("--proxy %s" % 'http://127.0.0.1:8080')
-    #cmd_parameters.append("--proxy-type %s" % 'http')
+    #if proxy:
+    #    cmd_parameters.append("--proxy=%s" % proxy)
+    #    cmd_parameters.append("--proxy-type=%s" % 'socks4')
 
     cmd_parameters.append(WEBSCREENSHOT_JS)
     cmd_parameters.append('url_capture=%s' % url)
@@ -200,7 +201,7 @@ def phantomjs_screenshot(url, host_str, output_filename):
     return shell_exec(url, cmd_parameters)
 
 
-def chrome_screenshot(url, host, filename1):
+def chrome_screenshot(url, host, filename1, proxy=None):
 
     empty_page = '<html><head></head><body></body></html>'
     caps = DesiredCapabilities.CHROME
@@ -219,6 +220,10 @@ def chrome_screenshot(url, host, filename1):
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--no-sandbox')
     options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
+    
+    if proxy:
+        #print("Proxy: %s" % proxy)
+        options.add_argument('--proxy-server=socks4://' + proxy);
 
     #Retrieve the page
     ret_err = False
@@ -253,7 +258,7 @@ def chrome_screenshot(url, host, filename1):
     return ret_host
 
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None ):
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None, socks4_proxy=None ):
 
     port = ""
     if port_arg:
@@ -288,7 +293,9 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
     #If the SSL certificate references a different hostname
     #print("Domain: %s" % domain)
-    if domain:
+
+    ret = False
+    if domain and socks4_proxy == False:
 
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
@@ -306,10 +313,11 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     if ret == False:
         #Cleanup filename and save
         filename1 = dest_dir + filename + ".png"
-        ret_host = chrome_screenshot(url, host, filename1)
+
+        ret_host = chrome_screenshot(url, host, filename1, socks4_proxy)
 
         #If the SSL certificate references a different hostname
-        if ret_host:
+        if ret_host and socks4_proxy == False:
 
             #Replace any wildcards in the certificate
             ret_host = ret_host.replace("*.", "")
@@ -323,7 +331,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
             
             ret = phantomjs_screenshot(url, ret_host, filename2)
 
-
             if ret == True and filename1 and filename2:
                 file_match = filecmp.cmp(filename1,filename2)
                 if file_match:
@@ -336,17 +343,41 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Screenshot a website.')
-    parser.add_argument('-u', dest='host', help='Domain Name or IP', required=True)
+    parser.add_argument('-u', dest='host', help='Domain Name or IP', required=False)
     parser.add_argument('-q', dest='query', help='URL Query', required=False)
     parser.add_argument('-p', dest='port', help='Port', required=False)
     parser.add_argument('-d', dest='host_hdr', help='Host Header Value')
+    parser.add_argument('-x', dest='proxy', help='Proxy')
+    parser.add_argument('-l', dest='host_file', help='Host - Line Delimited File')
     parser.add_argument('--secure', help='HTTPS', action='store_true')
     args = parser.parse_args()
+    
+    if args.host == None and args.host_file == None:
+        print("[-] Error: Host or File Path Required")
+        sys.exit(1)
+        
 
     secure_flag=False
     if args.secure == True:
         secure_flag = True
+        
+    host_list = []
+    if args.host_file:
+    
+        f = open(args.host_file, "rb")
+        lines = f.readlines()
+        f.close()
 
-    take_screenshot(args.host, args.port, args.query, secure=secure_flag, domain=args.host_hdr)
+        for line in lines:
+            try:
+                host = line.strip().decode('utf-8')
+                host_list.append(host)
+            except Exception as e:
+                print(e)
+                pass
+        
+    for host in host_list:
+        take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, socks4_proxy=args.proxy)
+
 
 
