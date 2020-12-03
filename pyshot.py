@@ -5,6 +5,9 @@
 #         Thomas Debize <tdebize at mail.com>
 #         https://github.com/maaaaz/webscreenshot
 #
+#         Duplicate file removal snippet pulled from 
+#         https://stackoverflow.com/questions/748675/finding-duplicate-files-and-removing-them
+#
 # Setup:
 # -------------------------------------------------
 # Install Selenium
@@ -59,11 +62,16 @@ import errno
 import subprocess
 import datetime
 import signal
+import glob
+
+import hashlib
+from collections import defaultdict
+
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import TimeoutException
 
-def get_ssl_subject_name(origin, log):
+def get_ssl_dns_names(origin, log):
 
     #Parse through performance logs and attempt to dig out the subject name from the SSL info
     try:
@@ -84,10 +92,24 @@ def get_ssl_subject_name(origin, log):
                 #Get URL
                 url = response['url']
                 if origin == url:
+                
                     ssl_info = response['securityDetails']
-                    return ssl_info['subjectName']
+                    subj_name = ssl_info['subjectName']
+                    san_list_str = ssl_info['sanList']
+                    #print(type(san_list_str))
+                    
+                    dns_set = set()
+                    dns_set.add(subj_name)
+                    if san_list_str and len(san_list_str) > 0:
+                        for san_name in san_list_str:
+                            if "*" not in san_name:
+                                dns_set.add(san_name)
+                                                     
+                    return list(dns_set)
     except:
         pass
+        
+    return None
 
 def navigate_to_url( driver, url, host ):
 
@@ -99,10 +121,10 @@ def navigate_to_url( driver, url, host ):
         pass
 
     origin = driver.current_url
-    ssl_subj_name = get_ssl_subject_name(origin, driver.get_log('performance'))
-    if ssl_subj_name and host != ssl_subj_name and "*." not in ssl_subj_name:
-        print("[-] Certificate Host Mismatch: %s %s" % ( host, ssl_subj_name ))
-        ret_host = ssl_subj_name
+    ssl_dns_name_arr = get_ssl_dns_names(origin, driver.get_log('performance'))
+    if ssl_dns_name_arr and (len(ssl_dns_name_arr) > 1 or host != ssl_dns_name_arr[0]):
+        print("[-] Certificate Host Mismatch: %s %s" % ( host, ssl_dns_name_arr ))
+        ret_host = ssl_dns_name_arr
 
     return ret_host
 
@@ -257,6 +279,78 @@ def chrome_screenshot(url, host, filename1, proxy=None):
 
     return ret_host
 
+def chunk_reader(fobj, chunk_size=1024):
+    while True:
+        chunk = fobj.read(chunk_size)
+        if not chunk:
+            return
+        yield chunk
+
+def get_hash(filename, first_chunk_only=False, hash=hashlib.sha1):
+    hashobj = hash()
+    file_object = open(filename, 'rb')
+
+    if first_chunk_only:
+        hashobj.update(file_object.read(1024))
+    else:
+        for chunk in chunk_reader(file_object):
+            hashobj.update(chunk)
+    hashed = hashobj.digest()
+
+    file_object.close()
+    return hashed
+
+def check_for_duplicates(files_paths, hash=hashlib.sha1):
+    hashes_by_size = defaultdict(list)
+    hashes_on_1k = defaultdict(list)
+    hashes_full = {}
+    duplicate_set = set()
+
+    for full_path in files_paths:
+        
+        try:
+            full_path = os.path.realpath(full_path)
+            file_size = os.path.getsize(full_path)
+            hashes_by_size[file_size].append(full_path)
+        except (OSError,):
+            continue
+
+
+    # For all files with the same file size, get their hash on the 1st 1024 bytes only
+    for size_in_bytes, files in hashes_by_size.items():
+        if len(files) < 2:
+            continue    # this file size is unique, no need to spend CPU cycles on it
+
+        for filename in files:
+            try:
+                small_hash = get_hash(filename, first_chunk_only=True)
+                hashes_on_1k[(small_hash, size_in_bytes)].append(filename)
+            except (OSError,):
+                continue
+
+    # For all files with the hash on the 1st 1024 bytes, get their hash on the full file - collisions will be duplicates
+    for __, files_list in hashes_on_1k.items():
+        if len(files_list) < 2:
+            continue    # this hash of fist 1k file bytes is unique, no need to spend cpy cycles on it
+        for filename in files_list:
+            try: 
+                full_hash = get_hash(filename, first_chunk_only=False)
+                duplicate = hashes_full.get(full_hash)
+                if duplicate:
+                    duplicate_set.add(filename)
+                else:
+                    hashes_full[full_hash] = filename
+            except (OSError,):
+                continue
+                
+    return list(duplicate_set)
+
+def remove_duplicates(file_dir):
+    # Check for duplicates in vhosts screenshots
+    files = glob.glob('%s*.png' % file_dir)
+    dup_list = check_for_duplicates(files)
+    for dupe in dup_list:
+        os.remove(dupe)    
 
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None, socks4_proxy=None ):
 
@@ -293,7 +387,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
     #If the SSL certificate references a different hostname
     #print("Domain: %s" % domain)
-
     ret = False
     if domain and socks4_proxy == False:
 
@@ -313,33 +406,27 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     if ret == False:
         #Cleanup filename and save
         filename1 = dest_dir + filename + ".png"
-
-        ret_host = chrome_screenshot(url, host, filename1, socks4_proxy)
+        ret_host_arr = chrome_screenshot(url, host, filename1, socks4_proxy)
 
         #If the SSL certificate references a different hostname
-        if ret_host and socks4_proxy == False:
+        if ret_host_arr and socks4_proxy == None:
 
             #Replace any wildcards in the certificate
-            ret_host = ret_host.replace("*.", "")
-            url = "https://" + host + ":443"
-            
-            #Add domain
-            tmp_str = filename
-            if ret_host != host:
-                tmp_str += "_" + ret_host
-            filename2 = dest_dir + tmp_str + ".png"
-            
-            ret = phantomjs_screenshot(url, ret_host, filename2)
-
-            if ret == True and filename1 and filename2:
-                file_match = filecmp.cmp(filename1,filename2)
-                if file_match:
-                    print("[-] Removing duplicate screenshot %s" % (filename2))
-                    os.remove(filename2)
-
+            for ret_host in ret_host_arr:
+                url = "https://" + host + ":443"
+                
+                #Add domain
+                tmp_str = filename
+                if ret_host != host:
+                    tmp_str += "_" + ret_host
+                filename2 = dest_dir + tmp_str + ".png"
+                
+                ret = phantomjs_screenshot(url, ret_host, filename2)
+               
+            #Remove duplicates
+            remove_duplicates(dest_dir + filename)
 
     return
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Screenshot a website.')
@@ -375,9 +462,10 @@ if __name__ == "__main__":
             except Exception as e:
                 print(e)
                 pass
-        
+    else:
+        host_list.append(args.host)
+                
     for host in host_list:
         take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, socks4_proxy=args.proxy)
-
 
 
