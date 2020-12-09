@@ -99,7 +99,9 @@ def get_ssl_dns_names(origin, log):
                     #print(type(san_list_str))
                     
                     dns_set = set()
-                    dns_set.add(subj_name)
+                    if "*" not in subj_name:
+                        dns_set.add(subj_name)
+                        
                     if san_list_str and len(san_list_str) > 0:
                         for san_name in san_list_str:
                             if "*" not in san_name:
@@ -388,7 +390,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     #If the SSL certificate references a different hostname
     #print("Domain: %s" % domain)
     ret = False
-    if domain and socks4_proxy == False:
+    if domain and socks4_proxy == None:
 
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
