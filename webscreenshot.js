@@ -60,10 +60,19 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	};
 	// Silence confirmation messages and errors
 	page.onConfirm = page.onPrompt = page.onError = noop;
+	
+	page.onError = function(msg){
+    //  console.log('js error');
+    };
 
 	page.onResourceRequested = function(request) {
 		requestCount += 1;
 		clearTimeout(ajaxRenderTimeout);
+	};
+	
+	page.onResourceError = function(errorData) {
+	//	console.log('Unable to load resource (URL:' + errorData.url + ')');
+	//	console.log('Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
 	};
 
 	page.onResourceReceived = function(response) {
@@ -83,7 +92,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 	api.render = function(url, file) {
 		opts.file = file;
-		
+        
 		page.open(url, function(status) {
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
