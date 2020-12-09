@@ -329,7 +329,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     filename += url.replace('://', '_').replace(':',"_")
 
     #If the SSL certificate references a different hostname
-    print("Domain: %s" % domain)
+    #print("Domain: %s" % domain)
     ret = False
     if domain and socks4_proxy == None:
 
