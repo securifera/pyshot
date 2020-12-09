@@ -150,7 +150,23 @@ def shell_exec(url, cmd_arr):
             p = subprocess.Popen(cmd_arr, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
      
         # binaries timeout
+        stdout = []
+        stderr = []
+        mix = []
         while p.poll() is None:
+        
+            line = p.stdout.read().decode()
+            if line != "":
+                stdout.append(line)
+                mix.append(line)
+                print(line, end='')
+     
+            line = p.stderr.read().decode()
+            if line != "":
+                stderr.append(line)
+                mix.append(line)
+                print(line, end='')
+        
             time.sleep(0.1)
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
@@ -164,7 +180,7 @@ def shell_exec(url, cmd_arr):
                     p.send_signal(signal.SIGKILL)
 
                 return False
-
+        
         retval = p.poll()
         p.stdout.close()
         p.stderr.close()
@@ -196,12 +212,14 @@ def phantomjs_screenshot(url, host_str, output_filename):
 
     cmd_parameters = [ bin_path,
                        '--ignore-ssl-errors=true',
-                       '--ssl-protocol=any',
+                       #'--ssl-protocol=any', #Removed because it was breaking the windows version
                        '--ssl-ciphers=ALL' ]
 
     #if proxy:
-    #    cmd_parameters.append("--proxy=%s" % proxy)
-    #    cmd_parameters.append("--proxy-type=%s" % 'socks4')
+    #proxy = '127.0.0.1:8080'
+    #cmd_parameters.append("--proxy=%s" % proxy)
+    #cmd_parameters.append("--proxy-type=%s" % 'socks4')
+    #cmd_parameters.append("--proxy-type=%s" % 'http')
 
     cmd_parameters.append(WEBSCREENSHOT_JS)
     cmd_parameters.append('url_capture=%s' % url)
@@ -281,79 +299,6 @@ def chrome_screenshot(url, host, filename1, proxy=None):
 
     return ret_host
 
-def chunk_reader(fobj, chunk_size=1024):
-    while True:
-        chunk = fobj.read(chunk_size)
-        if not chunk:
-            return
-        yield chunk
-
-def get_hash(filename, first_chunk_only=False, hash=hashlib.sha1):
-    hashobj = hash()
-    file_object = open(filename, 'rb')
-
-    if first_chunk_only:
-        hashobj.update(file_object.read(1024))
-    else:
-        for chunk in chunk_reader(file_object):
-            hashobj.update(chunk)
-    hashed = hashobj.digest()
-
-    file_object.close()
-    return hashed
-
-def check_for_duplicates(files_paths, hash=hashlib.sha1):
-    hashes_by_size = defaultdict(list)
-    hashes_on_1k = defaultdict(list)
-    hashes_full = {}
-    duplicate_set = set()
-
-    for full_path in files_paths:
-        
-        try:
-            full_path = os.path.realpath(full_path)
-            file_size = os.path.getsize(full_path)
-            hashes_by_size[file_size].append(full_path)
-        except (OSError,):
-            continue
-
-
-    # For all files with the same file size, get their hash on the 1st 1024 bytes only
-    for size_in_bytes, files in hashes_by_size.items():
-        if len(files) < 2:
-            continue    # this file size is unique, no need to spend CPU cycles on it
-
-        for filename in files:
-            try:
-                small_hash = get_hash(filename, first_chunk_only=True)
-                hashes_on_1k[(small_hash, size_in_bytes)].append(filename)
-            except (OSError,):
-                continue
-
-    # For all files with the hash on the 1st 1024 bytes, get their hash on the full file - collisions will be duplicates
-    for __, files_list in hashes_on_1k.items():
-        if len(files_list) < 2:
-            continue    # this hash of fist 1k file bytes is unique, no need to spend cpy cycles on it
-        for filename in files_list:
-            try: 
-                full_hash = get_hash(filename, first_chunk_only=False)
-                duplicate = hashes_full.get(full_hash)
-                if duplicate:
-                    duplicate_set.add(filename)
-                else:
-                    hashes_full[full_hash] = filename
-            except (OSError,):
-                continue
-                
-    return list(duplicate_set)
-
-def remove_duplicates(file_dir):
-    # Check for duplicates in vhosts screenshots
-    files = glob.glob('%s*.png' % file_dir)
-    dup_list = check_for_duplicates(files)
-    for dupe in dup_list:
-        os.remove(dupe)    
-
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None, socks4_proxy=None ):
 
     port = ""
@@ -375,10 +320,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     if len(dest_dir) > 0:
       dest_dir = dest_dir + os.path.sep
 
-
-    filename1 = None
-    filename2 = None
-
     #Setup filename
     filename = ''
     if port_id:
@@ -388,7 +329,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     filename += url.replace('://', '_').replace(':',"_")
 
     #If the SSL certificate references a different hostname
-    #print("Domain: %s" % domain)
+    print("Domain: %s" % domain)
     ret = False
     if domain and socks4_proxy == None:
 
@@ -404,8 +345,8 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
         ret = phantomjs_screenshot(url, domain, filename2)
 
-
-    if ret == False:
+    #if ret == False:
+    else:
         #Cleanup filename and save
         filename1 = dest_dir + filename + ".png"
         ret_host_arr = chrome_screenshot(url, host, filename1, socks4_proxy)
@@ -423,10 +364,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
                     tmp_str += "_" + ret_host
                 filename2 = dest_dir + tmp_str + ".png"
                 
-                ret = phantomjs_screenshot(url, ret_host, filename2)
-               
-            #Remove duplicates
-            remove_duplicates(dest_dir + filename)
+                ret = phantomjs_screenshot(url, ret_host, filename2)               
 
     return
 
