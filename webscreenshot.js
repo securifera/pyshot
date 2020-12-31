@@ -61,7 +61,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	page.onConfirm = page.onPrompt = page.onError = noop;
 
 	page.onError = function(msg){
-           console.log('js error');
+           console.log('[-] Javascript error');
         };
 
 	page.onResourceRequested = function(request) {
@@ -70,8 +70,8 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	};
 
 	page.onResourceError = function(errorData) {
-	   console.log('Unable to load resource (URL:' + errorData.url + ')');
-	   console.log('Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
+	   console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
+	   console.log('[-] Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
 	};
 
 	page.onResourceReceived = function(response) {
@@ -102,7 +102,6 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 					phantom.exit(1);
 				}
 			} else {
-                                console.log('Setting timeout')
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
 			}
 		});
