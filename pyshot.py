@@ -92,25 +92,25 @@ def get_ssl_dns_names(origin, log):
                 #Get URL
                 url = response['url']
                 if origin == url:
-                
+
                     ssl_info = response['securityDetails']
                     subj_name = ssl_info['subjectName']
                     san_list_str = ssl_info['sanList']
                     #print(type(san_list_str))
-                    
+
                     dns_set = set()
                     if "*" not in subj_name:
                         dns_set.add(subj_name)
-                        
+
                     if san_list_str and len(san_list_str) > 0:
                         for san_name in san_list_str:
                             if "*" not in san_name:
                                 dns_set.add(san_name)
-                                                     
+
                     return list(dns_set)
     except:
         pass
-        
+
     return None
 
 def navigate_to_url( driver, url, host ):
@@ -148,25 +148,25 @@ def shell_exec(url, cmd_arr):
             my_env = os.environ.copy()
             my_env["OPENSSL_CONF"] = "/etc/ssl/"
             p = subprocess.Popen(cmd_arr, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=my_env)
-     
+
         # binaries timeout
         stdout = []
         stderr = []
         mix = []
         while p.poll() is None:
-        
+
             line = p.stdout.read().decode()
             if line != "":
                 stdout.append(line)
                 mix.append(line)
                 print(line, end='')
-     
+
             line = p.stderr.read().decode()
             if line != "":
                 stderr.append(line)
                 mix.append(line)
                 print(line, end='')
-        
+
             time.sleep(0.1)
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
@@ -180,7 +180,7 @@ def shell_exec(url, cmd_arr):
                     p.send_signal(signal.SIGKILL)
 
                 return False
-        
+
         retval = p.poll()
         p.stdout.close()
         p.stderr.close()
@@ -189,16 +189,16 @@ def shell_exec(url, cmd_arr):
             if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
                 print("[-] HTTP Authentication requested.")
             else:
-                print("[-] PhantomJS failed. error code: '0x%x'" % (retval))                    
-            return False        
+                print("[-] PhantomJS failed. error code: '0x%x'" % (retval))
+            return False
         else:
             return True
-    
+
     except OSError as e:
         if e.errno and e.errno == errno.ENOENT :
             print('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
             return False
-        
+
     except Exception as err:
         print('[-] Failed. Error: %s' % err)
         return False
@@ -232,10 +232,10 @@ def phantomjs_screenshot(url, host_str, output_filename):
 
     cmd_parameters.append('format=%s' % 'png')
     cmd_parameters.append('quality=%d' % 75)
-    
+
     cmd_parameters.append('ajaxtimeout=%d' % 5000)
     cmd_parameters.append('maxtimeout=%d' % 8000)
-    
+
     cmd_parameters.append('header=Host: %s' % host_str)
     cmd_parameters.append('header=Referer: ')
 
@@ -262,15 +262,17 @@ def chrome_screenshot(url, host, filename1, proxy=None):
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--no-sandbox')
     options.add_argument('--user-agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.50 Safari/537.36"')
-    
+
     if proxy:
         #print("Proxy: %s" % proxy)
         options.add_argument('--proxy-server=socks4://' + proxy);
 
     #Retrieve the page
+    ret_host = None
     ret_err = False
-    driver = webdriver.Chrome('chromedriver', options=options, desired_capabilities=caps)
+    driver = None
     try:
+        driver = webdriver.Chrome('chromedriver', options=options, desired_capabilities=caps)
         driver.set_window_size(1024, 768) # set the window size that you need
         driver.set_page_load_timeout(10)
         source = None
@@ -290,12 +292,13 @@ def chrome_screenshot(url, host, filename1, proxy=None):
 
 
     except Exception as e:
-        print(e)
+        print("[-] Error executing chome driver: %s" % str(e))
         pass
 
     finally:
-        driver.close()
-        driver.quit()
+        if driver:
+            driver.close()
+            driver.quit()
 
     return ret_host
 
@@ -337,7 +340,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         domain = domain.replace("*.", "")
         url = "https://" + host + ":443"
 
-        #Add domain 
+        #Add domain
         tmp_str = filename
         if domain != host:
             tmp_str += "_" + domain
@@ -357,14 +360,16 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
             #Replace any wildcards in the certificate
             for ret_host in ret_host_arr:
                 url = "https://" + host + ":443"
-                
+
                 #Add domain
                 tmp_str = filename
                 if ret_host != host:
                     tmp_str += "_" + ret_host
                 filename2 = dest_dir + tmp_str + ".png"
-                
-                ret = phantomjs_screenshot(url, ret_host, filename2)               
+
+                ret = phantomjs_screenshot(url, ret_host, filename2)
+        else:
+            ret = phantomjs_screenshot(url, host, filename)
 
     return
 
@@ -378,19 +383,18 @@ if __name__ == "__main__":
     parser.add_argument('-l', dest='host_file', help='Host - Line Delimited File')
     parser.add_argument('--secure', help='HTTPS', action='store_true')
     args = parser.parse_args()
-    
+
     if args.host == None and args.host_file == None:
         print("[-] Error: Host or File Path Required")
         sys.exit(1)
-        
+
 
     secure_flag=False
     if args.secure == True:
         secure_flag = True
-        
+
     host_list = []
     if args.host_file:
-    
         f = open(args.host_file, "rb")
         lines = f.readlines()
         f.close()
@@ -404,7 +408,7 @@ if __name__ == "__main__":
                 pass
     else:
         host_list.append(args.host)
-                
+
     for host in host_list:
         take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, socks4_proxy=args.proxy)
 
