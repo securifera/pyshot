@@ -233,8 +233,8 @@ def phantomjs_screenshot(url, host_str, output_filename):
     cmd_parameters.append('format=%s' % 'png')
     cmd_parameters.append('quality=%d' % 75)
 
-    cmd_parameters.append('ajaxtimeout=%d' % 5000)
-    cmd_parameters.append('maxtimeout=%d' % 8000)
+    cmd_parameters.append('ajaxtimeout=%d' % 15000)
+    cmd_parameters.append('maxtimeout=%d' % 20000)
 
     cmd_parameters.append('header=Host: %s' % host_str)
     cmd_parameters.append('header=Referer: ')
