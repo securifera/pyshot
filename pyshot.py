@@ -369,7 +369,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
 
                 ret = phantomjs_screenshot(url, ret_host, filename2)
         else:
-            ret = phantomjs_screenshot(url, host, filename)
+            ret = phantomjs_screenshot(url, host, filename1)
 
     return
 
