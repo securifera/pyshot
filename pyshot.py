@@ -329,7 +329,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         filename += port_id + "@"
 
     #Remove characters that will make save fail
-    filename += url.replace('://', '_').replace(':',"_")
+    filename += url.replace('://', '-').replace(':',"-")
 
     #If the SSL certificate references a different hostname
     #print("Domain: %s" % domain)
@@ -364,7 +364,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
                 #Add domain
                 tmp_str = filename
                 if ret_host != host:
-                    tmp_str += "_" + ret_host
+                    tmp_str += "-" + ret_host
                 filename2 = dest_dir + tmp_str + ".png"
 
                 ret = phantomjs_screenshot(url, ret_host, filename2)
