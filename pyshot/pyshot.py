@@ -63,6 +63,7 @@ import subprocess
 import datetime
 import signal
 import glob
+import traceback
 
 import hashlib
 from collections import defaultdict
@@ -70,6 +71,11 @@ from collections import defaultdict
 from selenium import webdriver
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.common.exceptions import TimeoutException
+
+# Exception thrown if the bearer token is invalid
+class ScreenshotError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 def get_ssl_dns_names(origin, log):
 
@@ -125,7 +131,7 @@ def navigate_to_url( driver, url, host ):
     origin = driver.current_url
     ssl_dns_name_arr = get_ssl_dns_names(origin, driver.get_log('performance'))
     if ssl_dns_name_arr and (len(ssl_dns_name_arr) > 1 or host != ssl_dns_name_arr[0]):
-        print("[-] Certificate Host Mismatch: %s %s" % ( host, ssl_dns_name_arr ))
+        #print("[-] Certificate Host Mismatch: %s %s" % ( host, ssl_dns_name_arr ))
         ret_host = ssl_dns_name_arr
 
     return ret_host
@@ -159,18 +165,17 @@ def shell_exec(url, cmd_arr):
             if line != "":
                 stdout.append(line)
                 mix.append(line)
-                print(line, end='')
+                #print(line, end='')
 
             line = p.stderr.read().decode()
             if line != "":
                 stderr.append(line)
                 mix.append(line)
-                print(line, end='')
+                #print(line, end='')
 
             time.sleep(0.1)
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
-                print("[-] PhantomJS job reached timeout. Killing process.")
                 p.stdout.close()
                 p.stderr.close()
 
@@ -179,29 +184,31 @@ def shell_exec(url, cmd_arr):
                 else:
                     p.send_signal(signal.SIGKILL)
 
-                return False
+                raise ScreenshotError('[-] PhantomJS job reached timeout. Killing process.')
 
         retval = p.poll()
         p.stdout.close()
         p.stderr.close()
 
         if retval != SHELL_EXECUTION_OK:
+            msg = ""
             if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
-                print("[-] HTTP Authentication requested.")
+                msg = "[-] HTTP Authentication requested."
             else:
-                print("[-] PhantomJS failed. error code: '0x%x'" % (retval))
-            return False
+                msg = "[-] PhantomJS failed. error code: '0x%x'" % (retval)
+
+            raise ScreenshotError(msg)
         else:
-            return True
+            return
 
     except OSError as e:
         if e.errno and e.errno == errno.ENOENT :
-            print('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
-            return False
+            raise ScreenshotError('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
+            
 
     except Exception as err:
-        print('[-] Failed. Error: %s' % err)
-        return False
+        raise ScreenshotError('[-] Failed. Error: %s' % err)
+
 
 def phantomjs_screenshot(url, host_str, output_filename):
 
@@ -284,7 +291,7 @@ def chrome_screenshot(url, host, filename1, proxy=None):
         ret_host = navigate_to_url(driver, url, host)
         if driver.page_source == empty_page:
             ret_err = True
-            print("[-] Empty page")
+            #print("[-] Empty page")
 
         if ret_err == False:
             #Save the screenshot
@@ -304,6 +311,7 @@ def chrome_screenshot(url, host, filename1, proxy=None):
 
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None, socks4_proxy=None ):
 
+    ret_msg = ""
     port = ""
     if port_arg:
         port = ":" + port_arg
@@ -410,6 +418,9 @@ if __name__ == "__main__":
         host_list.append(args.host)
 
     for host in host_list:
-        take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, socks4_proxy=args.proxy)
-
+        try:
+            take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, socks4_proxy=args.proxy)
+        except Exception as e:
+            print(traceback.format_exc())
+            pass
 
