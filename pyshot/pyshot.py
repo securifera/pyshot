@@ -56,7 +56,7 @@ def shell_exec(url, cmd_arr):
     SHELL_EXECUTION_OK = 0
     PHANTOMJS_HTTP_AUTH_ERROR_CODE = 2
 
-    timeout = 10
+    timeout = 15
     start = datetime.datetime.now()
     is_windows = "win32" in sys.platform.lower()
 
@@ -119,7 +119,7 @@ def shell_exec(url, cmd_arr):
     except OSError as e:
         if e.errno and e.errno == errno.ENOENT :
             raise ScreenshotError('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
-            
+
 
     except Exception as err:
         raise ScreenshotError('[-] Failed. Error: %s' % err)
@@ -156,8 +156,8 @@ def phantomjs_screenshot(url, host_str, output_filename):
     cmd_parameters.append('quality=%d' % 75)
 
     # Not exactly a timeout and more static delay until script completes
-    cmd_parameters.append('ajaxtimeout=%d' % 2000)
-    cmd_parameters.append('maxtimeout=%d' % 3000)
+    cmd_parameters.append('ajaxtimeout=%d' % 4000)
+    cmd_parameters.append('maxtimeout=%d' % 5000)
 
     cmd_parameters.append('header=Host: %s' % host_str)
     cmd_parameters.append('header=Referer: ')
@@ -193,7 +193,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         filename += port_id + "@"
 
     #Remove characters that will make save fail
-    filename += url.replace('://', '-').replace(':',"-")
+    filename += url.replace('://', '-').replace(':','-').replace('/','-').replace('\\','-')
 
     #print("Domain: %s" % domain)
     ret = False
@@ -211,8 +211,8 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
     else:
         #Cleanup filename and save
         filename1 = dest_dir + filename + ".png"
-        
-        
+
+
     ret = phantomjs_screenshot(url, host, filename1)
 
     return

@@ -182,7 +182,6 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		
 		// Sanitize
 		var filepath = opts.file;
-		filepath = filepath.replace(/[/?\\]/gi, '_').toLowerCase();
 		page.render(filepath, {format: opts.format, quality: opts.quality});
 
 		//Clear timeout threads
