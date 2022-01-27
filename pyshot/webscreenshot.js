@@ -20,6 +20,8 @@
 
 var Page = (function(custom_headers, http_username, http_password, image_width, image_height, image_format, image_quality, ajax_timeout, max_timeout, crop_rect, custjs) {
 	var opts = {
+		username: http_username || '',
+		password_str: http_password || '',
 		width: image_width || 1200,
 		height: image_height || 800,
 		format: image_format || 'png',
@@ -27,14 +29,16 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		cropRect: crop_rect || false,
 		ajaxTimeout: ajax_timeout ||1400,
 		maxTimeout: max_timeout || 1800,
+		custJs: custjs || '',
 		httpAuthErrorCode: 2
 	};
 
-        var requestCount = 0;
+	var requestCount = 0;
 	var forceRenderTimeout;
 	var ajaxRenderTimeout;
 
 	var page = require('webpage').create();
+	var redirectURL = null;
 	page.viewportSize = {
 		width: opts.width,
 		height: opts.height
@@ -52,29 +56,42 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	page.settings.userAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36';
 	page.settings.userName = http_username;
 	page.settings.password = http_password;
-        page.settings.resourceTimeout = max_timeout;
+	page.settings.resourceTimeout = max_timeout;
 	page.customHeaders = custom_headers;
 	page.onInitialized = function() {
 		page.customHeaders = {};
 	};
+	
 	// Silence confirmation messages and errors
 	page.onConfirm = page.onPrompt = page.onError = noop;
 
 	page.onError = function(msg){
-           console.log('[-] Javascript error');
-        };
+	   console.log('[-] Javascript error: ' + msg);
+	};
 
 	page.onResourceRequested = function(request) {
 		requestCount += 1;
 		clearTimeout(ajaxRenderTimeout);
 	};
+	
+	//page.onNavigationRequested = function(url, type, willNavigate, main) {
+    //    if (main) {
+    //        console.log("URL: " + url);
+    //        console.log("redirect caught");
+    //    }
+    //};
 
 	page.onResourceError = function(errorData) {
 	   console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
 	   console.log('[-] Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
 	};
 
-	page.onResourceReceived = function(response) {
+	page.onResourceReceived = function(response) {		
+		
+		if (response.redirectURL) {
+			redirectURL = response.redirectURL;
+		}
+		
 		if (response.stage && response.stage == 'end' && response.status == '401') {
 			page.failReason = '401';
 		}
@@ -84,30 +101,74 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			if (requestCount === 0) {
 				ajaxRenderTimeout = setTimeout(renderAndExit, opts.ajaxTimeout);
 			}
-		}
+		}		
 	};
 
 	var api = {};
-
+	
 	api.render = function(url, file) {
 		opts.file = file;
 
 		page.open(url, function(status) {
+			
+			if (redirectURL) {
+				
+				//console.log("Original URL: " + url);
+				console.log("[*] Redirect URL: " + redirectURL);
+				
+				const url_arr = redirectURL.split("://");
+				var proto = url_arr[0];
+				var hostname_path = url_arr[1];
+				//console.log("Proto: " + proto);
+								
+				const hostname_path_arr = hostname_path.split("/");
+				hostname_port = hostname_path_arr[0];
+				
+				const hostname_port_arr = hostname_port.split(":");
+				hostname = hostname_port_arr[0];
+				if (hostname_port_arr.length > 1 ){
+					port = hostname_port_arr[1];
+					//console.log("Port changed on redirect: " + port);	
+				}
+				original_host_header = page.customHeaders['Host'];
+				var customHeaders = page.customHeaders;
+				//console.log("Hostname: " + hostname);	
+				if ( original_host_header && original_host_header !== hostname ) {				
+					//console.log("Host header needs to be changed");
+					
+					// Update the Host header
+					customHeaders['Host'] = hostname;
+					//console.log(customHeaders['Host']);					
+				}
+				
+				// Clear the timeout so the previous call does not stop the next one
+				clearTimeout(ajaxRenderTimeout);
+				
+				var page2 = Page(customHeaders, opts.username, opts.password_str, opts.width, opts.height, opts.format, opts.quality, opts.ajaxTimeout, opts.maxTimeout, opts.cropRect, opts.custJs);
+				page2.render(redirectURL, file);
+				return;
+			}
+				
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
 					// Specific 401 HTTP code hint
+					console.log("Exiting for 401")
 					phantom.exit(opts.httpAuthErrorCode);
 				} else {
+					console.log("Exiting for another reason: " + page.failReason)
 					// All other failures
 					phantom.exit(1);
 				}
 			} else {
+				//console.log("[*] Rendering page: " + url);
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
 			}
 		});
+		
 	};
 
 	function renderAndExit() {
+		
 		// Trick to avoid transparent background
 		page.evaluate(function() {
 			document.body.bgColor = 'white';
@@ -118,7 +179,14 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			var content = fs.read(custjs);
 			page.evaluateJavaScript(content);
 		}
-		page.render(opts.file, {format: opts.format, quality: opts.quality});
+		
+		// Sanitize
+		var filepath = opts.file;
+		filepath = filepath.replace(/[/?\\]/gi, '_').toLowerCase();
+		page.render(filepath, {format: opts.format, quality: opts.quality});
+
+		//Clear timeout threads
+		clearTimeout(ajaxRenderTimeout);
 		phantom.exit(0);
 	}
 
@@ -250,7 +318,7 @@ function main() {
 	}
 	else {
 		var page = Page(temp_custom_headers, http_username, http_password, image_width, image_height, image_format, image_quality, ajax_timeout, max_timeout, crop_rect, custjs);
-		page.render(URL, output_file);
+		page.render(URL, output_file);		
 	}
 }
 
