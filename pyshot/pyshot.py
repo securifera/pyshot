@@ -43,9 +43,9 @@ import datetime
 import signal
 import glob
 import traceback
-
-import hashlib
-from collections import defaultdict
+import json
+import random
+import string
 
 class ScreenshotError(Exception):
     def __init__(self, message):
@@ -125,7 +125,7 @@ def shell_exec(url, cmd_arr):
         raise ScreenshotError('[-] Failed. Error: %s' % err)
 
 
-def phantomjs_screenshot(url, host_str, output_filename):
+def phantomjs_screenshot(url, host_str, output_filename, file_ext):
 
     WEBSCREENSHOT_JS = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), './webscreenshot.js'))
     final_bin = []
@@ -152,8 +152,8 @@ def phantomjs_screenshot(url, host_str, output_filename):
     cmd_parameters.append('width=%d' % 1200)
     cmd_parameters.append('height=%d' % 800)
 
-    cmd_parameters.append('format=%s' % 'png')
-    cmd_parameters.append('quality=%d' % 75)
+    cmd_parameters.append('format=%s' % file_ext)
+    cmd_parameters.append('quality=%d' % 10)
 
     # Not exactly a timeout and more static delay until script completes
     cmd_parameters.append('ajaxtimeout=%d' % 4000)
@@ -165,7 +165,18 @@ def phantomjs_screenshot(url, host_str, output_filename):
     #print(cmd_parameters)
     return shell_exec(url, cmd_parameters)
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, port_id=None, domain=None ):
+def get_filename(dest_dir, image_format):
+
+
+    letters = string.ascii_lowercase + string.digits
+    ret_filename = dest_dir
+    ret_filename += ''.join(random.choice(letters) for i in range(32))
+
+    return ret_filename + "." + image_format
+
+
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, port_id=None, output_file=None, domain=None ):
+
 
     ret_msg = ""
     port = ""
@@ -185,35 +196,38 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", secure=False, po
         url = "https://" + path
 
     if len(dest_dir) > 0:
-      dest_dir = dest_dir + os.path.sep
-
-    #Setup filename
-    filename = ''
-    if port_id:
-        filename += port_id + "@"
-
-    #Remove characters that will make save fail
-    filename += url.replace('://', '-').replace(':','-').replace('/','-').replace('\\','-')
+        dest_dir = dest_dir + os.path.sep
 
     #print("Domain: %s" % domain)
-    ret = False
+    host_hdr = host
     if domain:
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
-        url = "https://" + host + ":443"
+        host_hdr = domain
 
-        #Add domain
-        tmp_str = filename
-        if domain != host:
-            tmp_str += "_" + domain
-        filename1 = dest_dir + tmp_str + ".png"
-        host = domain
-    else:
-        #Cleanup filename and save
-        filename1 = dest_dir + filename + ".png"
+    if output_file is None:
+        output_file = get_filename(dest_dir, image_format)
 
 
-    ret = phantomjs_screenshot(url, host, filename1)
+    screenshot_info = { 'ip' : host, 
+                'port' : port_arg,
+                'port_id' : port_id,
+                'secure': secure,
+                'host_header' : host_hdr,
+                'url' : url,
+                'file' : output_file }
+
+    screenshot_metadata_file = ''
+    if dest_dir:
+        screenshot_metadata_file = dest_dir
+    screenshot_metadata_file += 'screenshots.meta'
+
+    f = open(screenshot_metadata_file, 'a+')
+    f.write(json.dumps(screenshot_info) + "\n")
+    f.close()
+
+    #print(url)
+    phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     return
 
@@ -222,6 +236,8 @@ if __name__ == "__main__":
     parser.add_argument('-u', dest='host', help='Domain Name or IP', required=False)
     parser.add_argument('-q', dest='query', help='URL Query', required=False)
     parser.add_argument('-p', dest='port', help='Port', required=False)
+    parser.add_argument('-o', dest='output_file', help='Output File', required=False)
+    parser.add_argument('-f', dest='image_format', help='Image Format', default='jpg', required=False)
     parser.add_argument('-d', dest='host_hdr', help='Host Header Value')
     parser.add_argument('-x', dest='proxy', help='Proxy')
     parser.add_argument('-l', dest='host_file', help='Host - Line Delimited File')
@@ -255,7 +271,7 @@ if __name__ == "__main__":
 
     for host in host_list:
         try:
-            take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr)
+            take_screenshot(host, args.port, args.query, secure=secure_flag, domain=args.host_hdr, image_format=args.image_format, output_file=args.output_file)
         except Exception as e:
             print(traceback.format_exc())
             pass
