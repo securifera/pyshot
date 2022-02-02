@@ -17,10 +17,7 @@ setup(name='pyshot',
       url='https://www.securifera.com',
 
       packages=['pyshot'],
-      install_requires=[
 
-          'selenium'
-      ],
       include_package_data=True,
       package_data={'': ['webscreenshot.js']},
 

@@ -5,8 +5,6 @@
 #         Thomas Debize <tdebize at mail.com>
 #         https://github.com/maaaaz/webscreenshot
 #
-#         Duplicate file removal snippet pulled from 
-#         https://stackoverflow.com/questions/748675/finding-duplicate-files-and-removing-them
 #
 # Setup:
 # -------------------------------------------------
