@@ -74,12 +74,12 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		clearTimeout(ajaxRenderTimeout);
 	};
 	
-	//page.onNavigationRequested = function(url, type, willNavigate, main) {
-    //    if (main) {
-    //        console.log("URL: " + url);
-    //        console.log("redirect caught");
-    //    }
-    //};
+	// page.onNavigationRequested = function(url, type, willNavigate, main) {
+ //       if (main) {
+ //           console.log("URL: " + url);
+ //           console.log("redirect caught");
+ //       }
+ //    };
 
 	page.onResourceError = function(errorData) {
 	   console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
@@ -90,6 +90,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		
 		if (response.redirectURL) {
 			redirectURL = response.redirectURL;
+			console.log("[*] Redirect: " + redirectURL);
 		}
 		
 		if (response.stage && response.stage == 'end' && response.status == '401') {
@@ -110,36 +111,38 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		opts.file = file;
 
 		page.open(url, function(status) {
-			
+
+
+			// Make sure we don't change the IP address
 			if (redirectURL) {
+
+				redirect_url_obj = parseURL(redirectURL);
+				orig_url_obj = parseURL(url);
 				
-				//console.log("Original URL: " + url);
-				console.log("[*] Redirect URL: " + redirectURL);
-				
-				const url_arr = redirectURL.split("://");
-				var proto = url_arr[0];
-				var hostname_path = url_arr[1];
-				//console.log("Proto: " + proto);
-								
-				const hostname_path_arr = hostname_path.split("/");
-				hostname_port = hostname_path_arr[0];
-				
-				const hostname_port_arr = hostname_port.split(":");
-				hostname = hostname_port_arr[0];
-				if (hostname_port_arr.length > 1 ){
-					port = hostname_port_arr[1];
-					//console.log("Port changed on redirect: " + port);	
+				redirect_hostname = redirect_url_obj['hostname']
+				orig_hostname = orig_url_obj['hostname']
+
+				//console.log("[*] Original Hostname: " + orig_hostname);
+				//console.log("[*] Redirect URL: " + redirect_hostname);
+
+				if ( orig_hostname !== redirect_hostname ) {
+					console.log("[*] Redirected to different host '" + redirect_hostname + "'. Fixing up.");
+					redirect_url_obj['hostname'] = orig_url_obj['hostname'];
+					redirectURL = toURL(redirect_url_obj);
+					//console.log("[*] Redirect now: " + redirectURL);
+				} else {
+					console.log("[*] Redirect URL: " + redirectURL);
 				}
-				original_host_header = page.customHeaders['Host'];
+
 				var customHeaders = page.customHeaders;
-				//console.log("Hostname: " + hostname);	
-				if ( original_host_header && original_host_header !== hostname ) {				
-					//console.log("Host header needs to be changed");
-					
-					// Update the Host header
-					customHeaders['Host'] = hostname;
-					//console.log(customHeaders['Host']);					
-				}
+				//original_host_header = page.customHeaders['Host'];
+				//console.log("[*] Host header: " + original_host_header);
+
+				//if ( original_host_header === undefined || original_host_header !== redirect_hostname ) {				
+				//	console.log("[*] Host header needs to be updated");					
+					//Update the Host header 
+				customHeaders['Host'] = redirect_hostname;			
+				//}
 				
 				// Clear the timeout so the previous call does not stop the next one
 				clearTimeout(ajaxRenderTimeout);
@@ -147,25 +150,90 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 				var page2 = Page(customHeaders, opts.username, opts.password_str, opts.width, opts.height, opts.format, opts.quality, opts.ajaxTimeout, opts.maxTimeout, opts.cropRect, opts.custJs);
 				page2.render(redirectURL, file);
 				return;
-			}
+
+			} 
 				
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
 					// Specific 401 HTTP code hint
-					console.log("Exiting for 401")
+					console.log("[-] Exiting for 401")
 					phantom.exit(opts.httpAuthErrorCode);
 				} else {
-					console.log("Exiting for another reason: " + page.failReason)
+					console.log("[-] Exiting for another reason: " + page.failReason)
 					// All other failures
 					phantom.exit(1);
 				}
 			} else {
-				//console.log("[*] Rendering page: " + url);
+				console.log("[*] Rendering page: '" + url);
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
+
 			}
+			
 		});
 		
 	};
+
+	function parseURL(url) {
+
+		const url_arr = url.split("://");
+		proto = url_arr[0];
+		hostname_path = url_arr[1];
+		//console.log("Proto: " + proto);
+						
+		const host_idx = hostname_path.indexOf("/");
+		hostname_port = hostname_path;
+		path = '';
+		if( host_idx > 0 ){
+			hostname_port = hostname_path.substring(0, host_idx)
+			path = hostname_path.substring(host_idx+1)
+		}
+
+		//const hostname_path_arr = hostname_path.indexOf("/");
+		//hostname_port = hostname_path_arr[0];
+		//path = hostname_path_arr[1];
+		
+		const hostname_port_arr = hostname_port.split(":");
+		hostname = hostname_port_arr[0];
+
+		var port = undefined
+		if (hostname_port_arr.length > 1 ){
+		    port = hostname_port_arr[1];
+		  	//console.log("Port changed on redirect: " + port);	
+		}
+
+		var url_dict = {};
+		url_dict["proto"] = proto;
+		url_dict["hostname"] = hostname;
+
+		if( port !== undefined ){
+			url_dict["port"] = port;
+		}
+
+		url_dict["path"] = path;
+
+		return url_dict;
+
+	}
+
+	function toURL(url_obj) {
+
+		var returnURL = "";
+
+		returnURL = url_obj["proto"];
+		returnURL += "://";
+		returnURL += url_obj["hostname"];
+
+		if( "port" in url_obj){
+		 	returnURL += ":" + url_obj["port"];
+		}
+
+		if( "path" in url_obj){
+		 	returnURL += "/" + url_obj["path"];
+		}
+
+		return returnURL;
+	}
+
 
 	function renderAndExit() {
 		
