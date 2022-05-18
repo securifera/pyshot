@@ -182,26 +182,22 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         port = ":" + port_arg
 
     #Add query if it exists
-    path = host + port
+    full_path = host + port
+
+    path = "/"
     if query_arg:
         path += "/" + query_arg
 
+    full_path += path
     #Get the right URL
     #print(path)
     if secure == False:
-        url = "http://" + path
+        url = "http://" + full_path
     else:
-        url = "https://" + path
+        url = "https://" + full_path
 
     if len(dest_dir) > 0:
         dest_dir = dest_dir + os.path.sep
-
-    #print("Domain: %s" % domain)
-    host_hdr = host
-    if domain:
-        #Replace any wildcards in the certificate
-        domain = domain.replace("*.", "")
-        host_hdr = domain
 
     if output_file is None:
         output_file = get_filename(dest_dir, image_format)
@@ -211,9 +207,19 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'port' : port_arg,
                 'port_id' : port_id,
                 'secure': secure,
-                'host_header' : host_hdr,
                 'url' : url,
+                'path' : path,
                 'file' : output_file }
+
+
+    #print("Domain: %s" % domain)
+    host_hdr = host
+    if domain:
+        #Replace any wildcards in the certificate
+        domain = domain.replace("*.", "")
+        host_hdr = domain
+        screenshot_info['domain'] = domain
+    
 
     screenshot_metadata_file = ''
     if dest_dir:
