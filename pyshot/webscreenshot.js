@@ -92,9 +92,12 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			redirectURL = response.redirectURL;
 			console.log("[*] Redirect: " + redirectURL);
 		}
+
+		// Set status code
+		page.status = response.status;
 		
 		if (response.stage && response.stage == 'end' && response.status == '401') {
-			page.failReason = '401';
+			page.failReason = '401';			
 		}
 
 		if (!response.stage || response.stage === 'end') {
@@ -107,8 +110,8 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 	var api = {};
 	
-	api.render = function(url, file) {
-		opts.file = file;
+	api.render = function(url, output_file_prefix) {
+		opts.file = output_file_prefix + "." + opts.format;
 
 		page.open(url, function(status) {
 
@@ -148,10 +151,14 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 				clearTimeout(ajaxRenderTimeout);
 				
 				var page2 = Page(customHeaders, opts.username, opts.password_str, opts.width, opts.height, opts.format, opts.quality, opts.ajaxTimeout, opts.maxTimeout, opts.cropRect, opts.custJs);
-				page2.render(redirectURL, file);
+				page2.render(redirectURL, output_file_prefix);
 				return;
 
 			} 
+
+			var fs = require('fs');
+			var ret_data = {'status_code' : page.status, 'file_path' : opts.file };
+			fs.write(output_file_prefix + '.json', JSON.stringify(ret_data), 'w');
 				
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
@@ -166,7 +173,6 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			} else {
 				console.log("[*] Rendering page: '" + url);
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
-
 			}
 			
 		});
@@ -266,7 +272,7 @@ function main() {
 
 	var system = require('system');
 	var p_url = new RegExp('url_capture=(.*)');
-	var p_outfile = new RegExp('output_file=(.*)');
+	var p_outfile = new RegExp('output_file_prefix=(.*)');
 	var p_header = new RegExp('header=(.*)');
 
 	var p_http_username = new RegExp('http_username=(.*)');
@@ -312,7 +318,7 @@ function main() {
 
 		if (p_outfile.test(system.args[i]) === true)
 		{
-			var output_file = p_outfile.exec(system.args[i])[1];
+			var output_file_prefix = p_outfile.exec(system.args[i])[1];
 		}
 
 		if (p_http_username.test(system.args[i]) === true)
@@ -377,15 +383,15 @@ function main() {
 		}
 	}
 
-	if (typeof(URL) === 'undefined' || URL.length == 0 || typeof(output_file) === 'undefined' || output_file.length == 0) {
-		console.log("Usage: phantomjs [options] webscreenshot.js url_capture=<URL> output_file=<output_file.png> [header=<custom header> http_username=<HTTP basic auth username> http_password=<HTTP basic auth password>]");
+	if (typeof(URL) === 'undefined' || URL.length == 0 || typeof(output_file_prefix) === 'undefined' || output_file_prefix.length == 0) {
+		console.log("Usage: phantomjs [options] webscreenshot.js url_capture=<URL> output_file_prefix=<output_file> [header=<custom header> http_username=<HTTP basic auth username> http_password=<HTTP basic auth password>]");
 		console.log('Please specify an URL to capture and an output png filename !');
 
 		phantom.exit(1);
 	}
 	else {
 		var page = Page(temp_custom_headers, http_username, http_password, image_width, image_height, image_format, image_quality, ajax_timeout, max_timeout, crop_rect, custjs);
-		page.render(URL, output_file);		
+		page.render(URL, output_file_prefix);		
 	}
 }
 
