@@ -208,7 +208,10 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'port_id' : port_id,
                 'secure': secure,
                 'url' : url,
-                'path' : path }
+                'path' : path,
+                'file_path': None,
+                'domain': None,
+                'status_code': None }
 
     #print("Domain: %s" % domain)
     host_hdr = host
@@ -237,7 +240,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         json_data = json.loads(data)
         status_code = json_data['status_code']
         screenshot_info['status_code'] = status_code
-        screenshot_info['file'] = output_file + "." + image_format       
+        screenshot_info['file_path'] = output_file + "." + image_format       
 
     else:
         print("[-] Screenshot failed.")
