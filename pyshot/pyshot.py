@@ -145,7 +145,7 @@ def phantomjs_screenshot(url, host_str, output_filename, file_ext):
 
     cmd_parameters.append(WEBSCREENSHOT_JS)
     cmd_parameters.append('url_capture=%s' % url)
-    cmd_parameters.append('output_file=%s' % output_filename)
+    cmd_parameters.append('output_file_prefix=%s' % output_filename)
 
     #cmd_parameters.append('header="Cookie: %s"' % options.cookie.rstrip(';')) if options.cookie != None else None
 
@@ -165,14 +165,14 @@ def phantomjs_screenshot(url, host_str, output_filename, file_ext):
     #print(cmd_parameters)
     return shell_exec(url, cmd_parameters)
 
-def get_filename(dest_dir, image_format):
+def get_file_prefix(dest_dir):
 
 
     letters = string.ascii_lowercase + string.digits
     ret_filename = dest_dir
     ret_filename += ''.join(random.choice(letters) for i in range(32))
 
-    return ret_filename + "." + image_format
+    return ret_filename
 
 
 def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, port_id=None, output_file=None, domain=None ):
@@ -202,7 +202,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         dest_dir = dest_dir + os.path.sep
 
     if output_file is None:
-        output_file = get_filename(dest_dir, image_format)
+        output_file = get_file_prefix(dest_dir)
 
 
     screenshot_info = { 'ip' : host, 
@@ -211,8 +211,9 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'secure': secure,
                 'url' : url,
                 'path' : path,
-                'file' : output_file }
-
+                'file_path': None,
+                'domain': None,
+                'status_code': None }
 
     #print("Domain: %s" % domain)
     host_hdr = host
@@ -228,6 +229,25 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         screenshot_metadata_file = dest_dir
     screenshot_metadata_file += 'screenshots.meta'
 
+    #print(url)
+    phantomjs_screenshot(url, host_hdr, output_file, image_format)
+
+    output_file_json = output_file + ".json"
+    if os.path.exists(output_file_json):
+        f = open(output_file_json)
+        data = f.read()
+        f.close()
+
+        # Add status code
+        json_data = json.loads(data)
+        status_code = json_data['status_code']
+        screenshot_info['status_code'] = status_code
+        screenshot_info['file_path'] = output_file + "." + image_format       
+
+    else:
+        print("[-] Screenshot failed.")
+
+    
     f = open(screenshot_metadata_file, 'a+')
     f.write(json.dumps(screenshot_info) + "\n")
     f.close()
