@@ -49,6 +49,10 @@ class ScreenshotError(Exception):
     def __init__(self, message):
         super().__init__(message)
 
+class SslSniException(Exception):
+    def __init__(self, message):
+        super().__init__(message)
+
 def shell_exec(url, cmd_arr):
 
     SHELL_EXECUTION_OK = 0
@@ -107,6 +111,8 @@ def shell_exec(url, cmd_arr):
             msg = ""
             if retval == PHANTOMJS_HTTP_AUTH_ERROR_CODE:
                 msg = "[-] HTTP Authentication requested."
+            elif retval == 6:
+                raise SslSniException(msg)
             else:
                 msg = "[-] PhantomJS failed. error code: '0x%x'" % (retval)
 
@@ -117,10 +123,6 @@ def shell_exec(url, cmd_arr):
     except OSError as e:
         if e.errno and e.errno == errno.ENOENT :
             raise ScreenshotError('[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
-
-
-    except Exception as err:
-        raise ScreenshotError('[-] Failed. Error: %s' % err)
 
 
 def phantomjs_screenshot(url, host_str, output_filename, file_ext):
@@ -231,7 +233,11 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     f.close()
 
     #print(url)
-    phantomjs_screenshot(url, host_hdr, output_file, image_format)
+    try:
+        phantomjs_screenshot(url, host_hdr, output_file, image_format)
+    except SslSniException as e:
+        url = url.replace(host, host_hdr)
+        phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     return
 

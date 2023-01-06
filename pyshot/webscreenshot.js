@@ -36,6 +36,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	var requestCount = 0;
 	var forceRenderTimeout;
 	var ajaxRenderTimeout;
+	var errorCode = 0;
 
 	var page = require('webpage').create();
 	var redirectURL = null;
@@ -84,6 +85,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	page.onResourceError = function(errorData) {
 	   console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
 	   console.log('[-] Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
+	   errorCode = errorData.errorCode
 	};
 
 	page.onResourceReceived = function(response) {		
@@ -161,7 +163,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 				} else {
 					console.log("[-] Exiting for another reason: " + page.failReason)
 					// All other failures
-					phantom.exit(1);
+					phantom.exit(errorCode);
 				}
 			} else {
 				console.log("[*] Rendering page: '" + url);
