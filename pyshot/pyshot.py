@@ -182,6 +182,9 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     port = ""
     if port_arg:
         port = ":" + port_arg
+        # Default port 443 to secure
+        if port_arg == '443':
+            secure = True
 
     #Add query if it exists
     full_path = host + port
