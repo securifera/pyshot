@@ -62,7 +62,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	page.onInitialized = function() {
 		page.customHeaders = {};
 	};
-	
+
 	// Silence confirmation messages and errors
 	page.onConfirm = page.onPrompt = page.onError = noop;
 
@@ -74,7 +74,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		requestCount += 1;
 		clearTimeout(ajaxRenderTimeout);
 	};
-	
+
 	// page.onNavigationRequested = function(url, type, willNavigate, main) {
  //       if (main) {
  //           console.log("URL: " + url);
@@ -88,8 +88,8 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 	   errorCode = errorData.errorCode
 	};
 
-	page.onResourceReceived = function(response) {		
-		
+	page.onResourceReceived = function(response) {
+
 		if (response.redirectURL) {
 			redirectURL = response.redirectURL;
 			console.log("[*] Redirect: " + redirectURL);
@@ -97,9 +97,9 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 		// Set status code
 		page.status = response.status;
-		
+
 		if (response.stage && response.stage == 'end' && response.status == '401') {
-			page.failReason = '401';			
+			page.failReason = '401';
 		}
 
 		if (!response.stage || response.stage === 'end') {
@@ -107,11 +107,11 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			if (requestCount === 0) {
 				ajaxRenderTimeout = setTimeout(renderAndExit, opts.ajaxTimeout);
 			}
-		}		
+		}
 	};
 
 	var api = {};
-	
+
 	api.render = function(url, output_file_prefix) {
 		opts.file = output_file_prefix + "." + opts.format;
 
@@ -123,45 +123,45 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 				redirect_url_obj = parseURL(redirectURL);
 				orig_url_obj = parseURL(url);
-				
+
 				redirect_hostname = redirect_url_obj['hostname']
 				orig_hostname = orig_url_obj['hostname']
 
 				//console.log("[*] Original Hostname: " + orig_hostname);
 				//console.log("[*] Redirect URL: " + redirect_hostname);
 
-				if ( orig_hostname !== redirect_hostname ) {
-					console.log("[*] Redirected to different host '" + redirect_hostname + "'. Fixing up.");
-					redirect_url_obj['hostname'] = orig_url_obj['hostname'];
-					redirectURL = toURL(redirect_url_obj);
+				//if ( orig_hostname !== redirect_hostname ) {
+				//	console.log("[*] Redirected to different host '" + redirect_hostname + "'. Fixing up.");
+				//	redirect_url_obj['hostname'] = orig_url_obj['hostname'];
+				//	redirectURL = toURL(redirect_url_obj);
 					//console.log("[*] Redirect now: " + redirectURL);
-				} else {
-					console.log("[*] Redirect URL: " + redirectURL);
-				}
+				//} else {
+				//	console.log("[*] Redirect URL: " + redirectURL);
+				//}
 
 				var customHeaders = page.customHeaders;
 				//original_host_header = page.customHeaders['Host'];
 				//console.log("[*] Host header: " + original_host_header);
 
-				//if ( original_host_header === undefined || original_host_header !== redirect_hostname ) {				
-				//	console.log("[*] Host header needs to be updated");					
+				//if ( original_host_header === undefined || original_host_header !== redirect_hostname ) {
+				//	console.log("[*] Host header needs to be updated");
 					//Update the Host header 
-				customHeaders['Host'] = redirect_hostname;			
+				customHeaders['Host'] = redirect_hostname;
 				//}
-				
+
 				// Clear the timeout so the previous call does not stop the next one
 				clearTimeout(ajaxRenderTimeout);
-				
+
 				var page2 = Page(customHeaders, opts.username, opts.password_str, opts.width, opts.height, opts.format, opts.quality, opts.ajaxTimeout, opts.maxTimeout, opts.cropRect, opts.custJs);
 				page2.render(redirectURL, output_file_prefix);
 				return;
 
-			} 
+			}
 
 			var fs = require('fs');
 			var ret_data = {'status_code' : page.status, 'file_path' : opts.file };
 			fs.write(output_file_prefix + '.json', JSON.stringify(ret_data), 'w');
-				
+
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
 					// Specific 401 HTTP code hint
@@ -176,9 +176,9 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 				console.log("[*] Rendering page: '" + url);
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
 			}
-			
+
 		});
-		
+
 	};
 
 	function parseURL(url) {
@@ -187,7 +187,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		proto = url_arr[0];
 		hostname_path = url_arr[1];
 		//console.log("Proto: " + proto);
-						
+
 		const host_idx = hostname_path.indexOf("/");
 		hostname_port = hostname_path;
 		path = '';
@@ -199,7 +199,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 		//const hostname_path_arr = hostname_path.indexOf("/");
 		//hostname_port = hostname_path_arr[0];
 		//path = hostname_path_arr[1];
-		
+
 		const hostname_port_arr = hostname_port.split(":");
 		hostname = hostname_port_arr[0];
 
@@ -244,7 +244,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 
 	function renderAndExit() {
-		
+
 		// Trick to avoid transparent background
 		page.evaluate(function() {
 			document.body.bgColor = 'white';
@@ -255,7 +255,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			var content = fs.read(custjs);
 			page.evaluateJavaScript(content);
 		}
-		
+
 		// Sanitize
 		var filepath = opts.file;
 		page.render(filepath, {format: opts.format, quality: opts.quality});
@@ -335,7 +335,7 @@ function main() {
 
 		if (p_header.test(system.args[i]) === true)
 		{
-			var header = p_header.exec(system.args[i]);		
+			var header = p_header.exec(system.args[i]);
 			var p_header_split = header[1].split(': ', 2);
 			var header_name = p_header_split[0];
 			var header_value = p_header_split[1];
@@ -393,7 +393,7 @@ function main() {
 	}
 	else {
 		var page = Page(temp_custom_headers, http_username, http_password, image_width, image_height, image_format, image_quality, ajax_timeout, max_timeout, crop_rect, custjs);
-		page.render(URL, output_file_prefix);		
+		page.render(URL, output_file_prefix);
 	}
 }
 

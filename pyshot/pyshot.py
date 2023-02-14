@@ -159,7 +159,9 @@ def phantomjs_screenshot(url, host_str, output_filename, file_ext):
     cmd_parameters.append('ajaxtimeout=%d' % 4000)
     cmd_parameters.append('maxtimeout=%d' % 5000)
 
-    cmd_parameters.append('header=Host: %s' % host_str)
+    if host_str:
+        cmd_parameters.append('header=Host: %s' % host_str)
+
     cmd_parameters.append('header=Referer: ')
 
     #print(cmd_parameters)
@@ -225,7 +227,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         domain = domain.replace("*.", "")
         host_hdr = domain
         screenshot_info['domain'] = domain
-    
+
 
     screenshot_metadata_file = ''
     if dest_dir:
@@ -233,7 +235,17 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     screenshot_metadata_file += 'screenshots.meta'
 
     #print(url)
-    phantomjs_screenshot(url, host_hdr, output_file, image_format)
+
+    try:
+        phantomjs_screenshot(url, host_hdr, output_file, image_format)
+    except SslSniException as e:
+        url = url.replace(host, host_hdr)
+        print(url)
+        phantomjs_screenshot(url, None, output_file, image_format)
+    except Exception as e:
+        print(e) 
+
+    #phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     output_file_json = output_file + ".json"
     if os.path.exists(output_file_json):
@@ -245,22 +257,23 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         json_data = json.loads(data)
         status_code = json_data['status_code']
         screenshot_info['status_code'] = status_code
-        screenshot_info['file_path'] = output_file + "." + image_format       
+        screenshot_info['file_path'] = output_file + "." + image_format
 
     else:
         print("[-] Screenshot failed.")
 
-    
+
     f = open(screenshot_metadata_file, 'a+')
     f.write(json.dumps(screenshot_info) + "\n")
     f.close()
 
     #print(url)
-    try:
-        phantomjs_screenshot(url, host_hdr, output_file, image_format)
-    except SslSniException as e:
-        url = url.replace(host, host_hdr)
-        phantomjs_screenshot(url, host_hdr, output_file, image_format)
+    #try:
+    #    phantomjs_screenshot(url, host_hdr, output_file, image_format)
+    #except SslSniException as e:
+    #    url = url.replace(host, host_hdr)
+    #    print(url)
+    #    phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     return
 
