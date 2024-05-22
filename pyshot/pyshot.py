@@ -191,9 +191,9 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     #Add query if it exists
     full_path = host + port
 
-    path = "/"
+    path = ""
     if query_arg:
-        path += "/" + query_arg
+        path += query_arg
 
     full_path += path
     #Get the right URL
