@@ -177,7 +177,7 @@ def get_file_prefix(dest_dir):
     return ret_filename
 
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, port_id=None, output_file=None, domain=None ):
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, screenshot_id=None, output_file=None, domain=None ):
 
 
     ret_msg = ""
@@ -212,7 +212,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
 
     screenshot_info = { 'ip' : host, 
                 'port' : port_arg,
-                'port_id' : port_id,
+                'screenshot_id' : screenshot_id,
                 'secure': secure,
                 'url' : url,
                 'path' : path,
