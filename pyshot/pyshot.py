@@ -241,11 +241,14 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     except SslSniException as e:
         url = url.replace(host, host_hdr)
         print(url)
-        phantomjs_screenshot(url, None, output_file, image_format)
+        try:
+            phantomjs_screenshot(url, None, output_file, image_format)
+        except SslSniException as e:
+            print("[-] SslSniException")
+            pass
     except Exception as e:
-        print(e) 
+        print(e)
 
-    #phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     output_file_json = output_file + ".json"
     if os.path.exists(output_file_json):
@@ -263,18 +266,10 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     else:
         print("[-] Screenshot failed.")
 
+    print(screenshot_info)
+    with open(screenshot_metadata_file, 'a+') as file_fd:
+        file_fd.write(json.dumps(screenshot_info) + "\n")
 
-    f = open(screenshot_metadata_file, 'a+')
-    f.write(json.dumps(screenshot_info) + "\n")
-    f.close()
-
-    #print(url)
-    #try:
-    #    phantomjs_screenshot(url, host_hdr, output_file, image_format)
-    #except SslSniException as e:
-    #    url = url.replace(host, host_hdr)
-    #    print(url)
-    #    phantomjs_screenshot(url, host_hdr, output_file, image_format)
 
     return
 
