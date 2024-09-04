@@ -198,10 +198,10 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
     full_path += path
     #Get the right URL
     #print(path)
-    if secure == False:
-        url = "http://" + full_path
-    else:
-        url = "https://" + full_path
+    url = "http"
+    if secure == True:
+       url += "s"
+    url += "://" + full_path 
 
     if len(dest_dir) > 0:
         dest_dir = dest_dir + os.path.sep
