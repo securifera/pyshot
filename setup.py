@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 setup(name='pyshot',
@@ -16,8 +16,8 @@ setup(name='pyshot',
 
       url='https://www.securifera.com',
 
-      packages=['pyshot'],
-
+      packages=find_packages(),
+      zip_safe=False,
       include_package_data=True,
       package_data={'': ['webscreenshot.js']},
 
