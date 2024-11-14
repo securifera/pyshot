@@ -217,7 +217,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'url' : url,
                 'path' : path,
                 'file_path': None,
-                'domain': None,
+                'domain': domain,
                 'status_code': None }
 
     #print("Domain: %s" % domain)
