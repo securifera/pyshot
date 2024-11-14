@@ -177,7 +177,7 @@ def get_file_prefix(dest_dir):
     return ret_filename
 
 
-def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, port_id=None, output_file=None, domain=None ):
+def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jpg", secure=False, port_id=None, output_file=None, domain=None, endpoint_id=None ):
 
 
     ret_msg = ""
@@ -218,7 +218,8 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'path' : path,
                 'file_path': None,
                 'domain': domain,
-                'status_code': None }
+                'status_code': None,
+                'endpoint_id': None}
 
     #print("Domain: %s" % domain)
     host_hdr = host
@@ -226,7 +227,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
         host_hdr = domain
-
 
     screenshot_metadata_file = ''
     if dest_dir:
