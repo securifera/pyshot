@@ -219,7 +219,7 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
                 'file_path': None,
                 'domain': domain,
                 'status_code': None,
-                'endpoint_id': None}
+                'endpoint_id': endpoint_id}
 
     #print("Domain: %s" % domain)
     host_hdr = host
