@@ -226,7 +226,6 @@ def take_screenshot( host, port_arg, query_arg="", dest_dir="", image_format="jp
         #Replace any wildcards in the certificate
         domain = domain.replace("*.", "")
         host_hdr = domain
-        screenshot_info['domain'] = domain
 
 
     screenshot_metadata_file = ''
