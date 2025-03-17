@@ -84,12 +84,12 @@ def shell_exec(cmd_arr):
                 if fd == p.stdout.fileno():
                     data = p.stdout.read1().decode()
                     if data:
-                        print(data, end='')
+                        data, end='')
 
                 if fd == p.stderr.fileno():
                     data = p.stderr.read1().decode()
                     if data:
-                        print(data, end='')
+                        data, end='')
 
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
@@ -240,7 +240,7 @@ def take_screenshot(host, port_arg, query_arg="", dest_dir="", image_format="jpg
         phantomjs_screenshot(url, host_hdr, output_file, image_format)
     except SslSniException as e:
         url = url.replace(host, host_hdr)
-        print(url)
+        # print(url)
         try:
             phantomjs_screenshot(url, None, output_file, image_format)
         except SslSniException as e:
@@ -265,7 +265,7 @@ def take_screenshot(host, port_arg, query_arg="", dest_dir="", image_format="jpg
     else:
         print("[-] Screenshot failed.")
 
-    print(screenshot_info)
+    # print(screenshot_info)
     with open(screenshot_metadata_file, 'a+') as file_fd:
         file_fd.write(json.dumps(screenshot_info) + "\n")
 
