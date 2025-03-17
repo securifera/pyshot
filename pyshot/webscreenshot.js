@@ -83,8 +83,8 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
  //    };
 
 	page.onResourceError = function(errorData) {
-	   console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
-	   console.log('[-] Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
+	   //console.log('[-] Unable to load resource (URL:' + errorData.url + ')');
+	   //console.log('[-] Error code: ' + errorData.errorCode + '. Description: ' + errorData.errorString);
 	   errorCode = errorData.errorCode
 	};
 
@@ -92,7 +92,7 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 
 		if (response.redirectURL) {
 			redirectURL = response.redirectURL;
-			console.log("[*] Redirect: " + redirectURL);
+			//console.log("[*] Redirect: " + redirectURL);
 		}
 
 		// Set status code
@@ -165,15 +165,15 @@ var Page = (function(custom_headers, http_username, http_password, image_width, 
 			if (status !== "success") {
 				if (page.failReason && page.failReason == '401') {
 					// Specific 401 HTTP code hint
-					console.log("[-] Exiting for 401")
+					//console.log("[-] Exiting for 401")
 					phantom.exit(opts.httpAuthErrorCode);
 				} else {
-					console.log("[-] Exiting for another reason: " + page.failReason)
+					//console.log("[-] Exiting for another reason: " + page.failReason)
 					// All other failures
 					phantom.exit(errorCode);
 				}
 			} else {
-				console.log("[*] Rendering page: '" + url);
+				//console.log("[*] Rendering page: '" + url);
 				forceRenderTimeout = setTimeout(renderAndExit, opts.maxTimeout);
 			}
 
