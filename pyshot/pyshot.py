@@ -84,12 +84,12 @@ def shell_exec(cmd_arr):
                 if fd == p.stdout.fileno():
                     data = p.stdout.read1().decode()
                     if data:
-                        data, end='')
+                        print(data, end='')
 
                 if fd == p.stderr.fileno():
                     data = p.stderr.read1().decode()
                     if data:
-                        data, end='')
+                        print(data, end='')
 
             now = datetime.datetime.now()
             if (now - start).seconds > timeout:
