@@ -123,7 +123,7 @@ def shell_exec(cmd_arr):
 
     except OSError as e:
         if e.errno and e.errno == errno.ENOENT:
-            raise ScreenshotError(
+            raise FileNotFoundError(
                 '[-] PhantomJS binary could not be found. Ensure it is in your PATH.')
 
 
@@ -246,6 +246,8 @@ def take_screenshot(host, port_arg, query_arg="", dest_dir="", image_format="jpg
         except SslSniException as e:
             print("[-] SslSniException")
             pass
+    except ScreenshotError as e:
+        print(e)
 
     output_file_json = output_file + ".json"
     if os.path.exists(output_file_json):
