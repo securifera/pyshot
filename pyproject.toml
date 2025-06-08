@@ -1,0 +1,20 @@
+[project]
+name = "pyshot"
+version = "1.0.1"
+description = "Website Screenshot Utility"
+authors = [
+    { name = "Ryan Wincey (b0yd)", email = "rwincey@securifera.com" }
+]
+urls = { homepage = "https://www.securifera.com" }
+requires-python = ">=3.6"
+
+[tool.setuptools]
+packages = ['pyshot']
+include-package-data = true
+
+[tool.setuptools.package-data]
+pyshot = ["webscreenshot.js"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
