@@ -246,8 +246,6 @@ def take_screenshot(host, port_arg, query_arg="", dest_dir="", image_format="jpg
         except SslSniException as e:
             print("[-] SslSniException")
             pass
-    except Exception as e:
-        print(e)
 
     output_file_json = output_file + ".json"
     if os.path.exists(output_file_json):
